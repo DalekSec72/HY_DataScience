@@ -3,11 +3,12 @@
 # 2021 HYU. CSE
 # Taehun Kim <th6424@gmail.com>
 
+import os
 import sys
 from itertools import combinations
 
 
-def read_data(path):
+def read_file(path):
     transactions = []
     try:
         with open(path, 'r') as f:
@@ -28,13 +29,18 @@ def read_data(path):
     return transactions
 
 
-def filter_by_min_sup(candidate: dict, min_sup_count: float) -> list:
-    result = []
-    for item in candidate:
-        if candidate[item] >= min_sup_count:
-            result.append(item)
+def write_file(data, path=sys.argv[3]):
+    with open(path, 'a') as f:
+        f.writelines(data)
 
-    return result if result else exit()
+
+def filter_by_min_sup(candidate: dict, min_sup_count: float) -> dict:
+    result = {}
+    for item, count in candidate.items():
+        if count >= min_sup_count:
+            result[item] = count
+
+    return result
 
 
 def generate_C1(transactions: list) -> dict:
@@ -49,11 +55,10 @@ def generate_C1(transactions: list) -> dict:
     return C1
 
 
-def generate_candidate(itemset: list, k) -> dict:
+def generate_candidate(itemset: dict, k) -> dict:
     # self-join
     if k == 2:
-        for item in itemset:
-            superset = list(combinations(itemset, k))
+        superset = list(combinations(itemset, k))
 
     else:
         elements = []
@@ -61,6 +66,7 @@ def generate_candidate(itemset: list, k) -> dict:
             for element in item:
                 if element not in elements:
                     elements.append(element)
+
         superset = list(combinations(elements, k))
 
     # prune
@@ -83,7 +89,7 @@ def generate_candidate(itemset: list, k) -> dict:
             count = 0
 
             for element in subset:
-                if set((element,)).issubset(set(itemset)):
+                if {element}.issubset(set(itemset)):
                     count += 1
 
             if count == len(subset):
@@ -99,7 +105,40 @@ def generate_candidate(itemset: list, k) -> dict:
                 else:
                     candidate[item] = 1
 
-    return candidate if candidate else exit()
+    return candidate
+
+
+def get_support_and_confidence_with_associative_item(itemset: dict, k, db):
+    # k는 2부터 들어옴.
+    for item_set, frequency in itemset.items():
+        itemset_len = k
+
+        # subset 개수 따라 association 구성.
+        while itemset_len > 1:
+            subset = list(combinations(item_set, itemset_len - 1))
+            for item in subset:
+                complement = set(item_set) - set(item)
+
+                count = 0
+                for trx in db:
+                    if set(item).issubset(set(trx)):
+                        count += 1
+
+                # A와 B가 모두 있을 확률.
+                support = frequency / len(db) * 100
+
+                # A가 있을 때 B가 있을 확률 = A가 있을 때 A, B가 같이 있을 확률.
+                confidence = frequency / count * 100
+
+                item = set(map(int, set(item)))
+                complement = set(map(int, complement))
+
+                result = '{0}\t{1}\t{2}\t{3}\n'.format(str(item), str(complement), str('%.2f' % round(support, 2)),
+                                                       str('%.2f' % round(confidence, 2)))
+
+                write_file(result)
+
+            itemset_len -= itemset_len
 
 
 if __name__ == '__main__':
@@ -107,16 +146,31 @@ if __name__ == '__main__':
     input_file = sys.argv[2]
     output_file = sys.argv[3]
 
-    global transactions_data
-    transactions_data = read_data(input_file)
+    try:
+        os.remove(output_file)
+    except FileNotFoundError:
+        pass
 
-    minimun_support_count = minimum_support * len(transactions_data)
+    transactions_data = read_file(input_file)
 
-    L = [filter_by_min_sup(generate_C1(transactions_data), minimum_support)]
+    minimum_support_count = minimum_support * len(transactions_data)
+
     # L[0] = L1, L[1] = L2 ...
+    L = [filter_by_min_sup(generate_C1(transactions_data), minimum_support)]
 
-    k = 0
+    i = 0
     while True:
-        print('L_', f'{k + 1}', L[k])
-        L.append(filter_by_min_sup(generate_candidate(L[k], k+2), minimun_support_count))
-        k += 1
+        c = generate_candidate(L[i], i + 2)
+        if not c:
+            break
+
+        l = filter_by_min_sup(c, minimum_support_count)
+        if not l:
+            break
+
+        L.append(l)
+
+        i += 1
+
+    for j in range(0, len(L)):
+        get_support_and_confidence_with_associative_item(L[j], j + 1, transactions_data)
