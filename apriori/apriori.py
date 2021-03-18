@@ -138,7 +138,7 @@ def get_support_and_confidence_with_associative_item(itemset: dict, k, db):
 
                 write_file(result)
 
-            itemset_len -= itemset_len
+            itemset_len -= 1
 
 
 if __name__ == '__main__':
