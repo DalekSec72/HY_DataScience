@@ -55,7 +55,7 @@ def generate_C1(transactions: list) -> dict:
     return C1
 
 
-def generate_candidate(itemset: dict, k) -> dict:
+def self_join(itemset, k):
     # self-join
     if k == 2:
         superset = list(combinations(itemset, k))
@@ -69,43 +69,45 @@ def generate_candidate(itemset: dict, k) -> dict:
 
         superset = list(combinations(elements, k))
 
-    # prune
-    subsets, temp = [], []
-    if k == 2:
-        for item in superset:
-            subsets.append(list(combinations(item, k - 1)))
+    return superset
 
-        for subset in subsets:
-            if subset[0][0] in itemset and subset[1][0] in itemset:
-                temp.append((subset[0][0], subset[1][0]))
+
+def prune(k, itemset, superset, min_sup_count):
+    # prune
+    subsets, temp = {}, []
+    if k == 2:
+        for item in itemset:
+            temp.append(list([item, ]))
+        itemset = temp
 
     else:
-        for item in superset:
-            subsets.append(list(combinations(item, k - 1)))
+        for item in itemset:
+            temp.append(set(item))
+        itemset = temp
 
-        index = -1
-        for subset in subsets:
-            index += 1
-            count = 0
+    for subset in superset:
+        count = 0
+        for item in list(combinations(subset, k - 1)):
+            if k == 2:
+                item = list(item)
+            else:
+                item = set(item)
 
-            for element in subset:
-                if {element}.issubset(set(itemset)):
-                    count += 1
+            if item not in itemset:
+                break
 
-            if count == len(subset):
-                temp.append(superset[index])
+            count += 1
 
-    candidate = {}
+        if count == k:
+            subsets[(subset)] = 0
+
     # db와 비교하며 카운트
-    for item in temp:
+    for item in subsets:
         for trx in transactions_data:
             if set(item).issubset(set(trx)):
-                if item in candidate.keys():
-                    candidate[item] += 1
-                else:
-                    candidate[item] = 1
+                subsets[item] += 1
 
-    return candidate
+    return filter_by_min_sup(subsets, min_sup_count)
 
 
 def get_support_and_confidence_with_associative_item(itemset: dict, k, db):
@@ -157,20 +159,14 @@ if __name__ == '__main__':
 
     # L[0] = L1, L[1] = L2 ...
     L = [filter_by_min_sup(generate_C1(transactions_data), minimum_support)]
-
-    i = 0
+    k = 2
     while True:
-        c = generate_candidate(L[i], i + 2)
-        if not c:
-            break
+        candidate = self_join(L[k - 2], k)
+        candidate = prune(k, L[k - 2], candidate, minimum_support_count)
 
-        l = filter_by_min_sup(c, minimum_support_count)
-        if not l:
-            break
+        get_support_and_confidence_with_associative_item(candidate, k, transactions_data)
+        if not candidate:
+            exit()
 
-        L.append(l)
-
-        i += 1
-
-    for j in range(0, len(L)):
-        get_support_and_confidence_with_associative_item(L[j], j + 1, transactions_data)
+        L.append(candidate)
+        k += 1

@@ -253,3 +253,5 @@ Thumbs.db #thumbnail cache on Windows
 
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,python
+apriori/.idea/workspace.xml
+.idea/
