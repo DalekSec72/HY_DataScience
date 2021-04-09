@@ -10,7 +10,6 @@ import node
 
 sys.setrecursionlimit(10**6)
 
-# 학습 데이터면 데이터프레임 리턴, 테스트 데이터면 리스트 리턴.
 def read_file(path):
     samples = []
     try:
