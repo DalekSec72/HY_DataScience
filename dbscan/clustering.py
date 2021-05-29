@@ -22,12 +22,10 @@ def read_file(path):
 
     except FileNotFoundError as e:
         print(e)
-        exit()
+        sys.exit()
     except FileExistsError as e:
         print(e)
-        exit()
-    finally:
-        f.close()
+        sys.exit()
 
     data = np.array(samples)
 
